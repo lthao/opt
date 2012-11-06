@@ -1,0 +1,86 @@
+#include <stdio.h>
+#include <assert.h>
+#include "ino.h"
+#include "inode.h"
+#include "diskimg.h"
+
+#define INODES_PER_SEC 16
+
+/*
+ * Fetch the specified inode from the filesystem. 
+ * Return 0 on success, -1 on error.  
+ */
+int
+inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp)
+{	
+	int sectorNum = ((inumber - 1) / 16 ) + 2;
+	int sectorIndex = (inumber - 1) % INODES_PER_SEC;
+	
+	struct inode buff[INODES_PER_SEC];
+	
+	//char sectorBuff[512];
+	int result = diskimg_readsector(fs->dfd, sectorNum, &buff);
+	if (result != DISKIMG_SECTOR_SIZE) {
+		printf("read error\n");
+		return -1;
+	}
+	*inp = buff[sectorIndex];
+	return 0;
+}
+
+/*
+ * Get the location of the specified file block of the specified inode.
+ * Return the disk block number on success, -1 on error.  
+ */
+int
+inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
+{
+	if (((inp->i_mode) & ILARG) == 0) {
+		//check if blockNUm is less than 8
+		return inp->i_addr[blockNum];
+	} else {
+		
+		//determing i_addrIndex
+		int i_addrIndex = 0;
+		if (blockNum >= (256 * 7)) {
+			i_addrIndex = 7;
+		} else {
+			i_addrIndex = blockNum / 256;
+		}
+		
+		//determining sectorIndex
+		int sectorIndex = blockNum % 256;
+		
+		if (i_addrIndex <= 6) {
+			int sectorNum = inp->i_addr[i_addrIndex];
+			uint16_t buff[256];
+			int result = diskimg_readsector(fs->dfd, sectorNum, &buff);
+			// error check with result
+			return (int) buff[sectorIndex]; //cast?
+		} else {
+			int masterSectorNum = inp->i_addr[7];
+			
+			uint16_t masterBuff[256];
+			int masterResult = diskimg_readsector(fs->dfd, masterSectorNum, &masterBuff);
+			int masterIndex = ((blockNum - 1792) / 256);
+			
+			uint16_t sectorBuff[256];
+			int sectorNum = masterBuff[masterIndex];
+			int sectorResult = diskimg_readsector(fs->dfd, sectorNum, &sectorBuff);
+			
+			int index = blockNum % 256;
+			return (int) sectorBuff[index];
+			
+		}
+	}
+	return -1;
+}
+
+/* 
+ * Compute the size of an inode from its size0 and size1 fields.
+ */
+int
+inode_getsize(struct inode *inp) 
+{
+	return ((inp->i_size0 << 16) | inp->i_size1); 
+}
