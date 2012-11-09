@@ -14,7 +14,7 @@
  */
 
 int
-pathname_lookup(struct unixfilesystem *fs, const char *pathname)
+pathname_lookup(struct unixfilesystem *fs, const char *pathname, int *info1, int *info2)
 {
 	char *path = strdup(pathname);
 	int inumber = ROOT_INUMBER;
@@ -31,9 +31,9 @@ pathname_lookup(struct unixfilesystem *fs, const char *pathname)
 			int length = strlen(path);
 			strncpy(name, path, length);
 			name[length] = '\0';
-		}		
+		}
 		struct direntv6 dirEnt;
-		int result = directory_findname(fs, name, inumber, &dirEnt);
+		int result = directory_findname(fs, name, inumber, &dirEnt, info1, info2);
 		if (result < 0) return -1;
 		inumber = dirEnt.d_inumber;
 		index = strchr(path, '/');
@@ -41,7 +41,7 @@ pathname_lookup(struct unixfilesystem *fs, const char *pathname)
 	}
 	if (strcmp(path, "") == 0) return inumber; //accounts for pathnames that end in a slash
 	struct direntv6 dirEnt;
-	int result = directory_findname(fs, path, inumber, &dirEnt);
+	int result = directory_findname(fs, path, inumber, &dirEnt, info1, info2);
 	if (result != 0) return -1;
 	inumber = (int)dirEnt.d_inumber;
 	if (strchr(path, '/') == NULL) {

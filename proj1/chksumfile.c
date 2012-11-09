@@ -80,7 +80,7 @@ chksumfile_byinumber(struct unixfilesystem *fs, int inumber, void *chksum)
 int
 chksumfile_bypathname(struct unixfilesystem *fs, const char *pathname, void *chksum)
 {
-  int inumber = pathname_lookup(fs, pathname);
+  int inumber = pathname_lookup(fs, pathname, NULL, NULL);
   if (inumber < 0) {
     return inumber;
   }

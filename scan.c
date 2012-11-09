@@ -56,7 +56,10 @@ Scan_File(char *inpathname, Index *ind, Pathstore *store, int discardDups)
   while (!(ch < 0)) {   // Process words until we reach the end of the file
     while (!isalpha(ch)) {    // Skip any leading non-alpha characters
       ch = Fileops_getchar(fd);
-      if (ch < 0) {Fileops_close(fd); return 0; }
+      if (ch < 0) {
+		  Fileops_close(fd); 
+		  return 0; 
+	  }
       numchars++;
     }
     // Found a word - record it in the index.

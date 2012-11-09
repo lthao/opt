@@ -36,6 +36,8 @@ static struct {
 	int inumber;
 	int blockNo;
 	struct inode in;
+	int size;
+	int flag;
 	unsigned char buf[DISKIMG_SECTOR_SIZE];
 } openFileTable[MAX_FILES];
 
@@ -73,14 +75,6 @@ Fileops_open(char *pathname)
 	int inumber;
 	
 	numopens++;
-	inumber = pathname_lookup(unixfs,pathname);
-	if (inumber < 0) {
-		return -1; // File not found
-	}
-	
-	/*
-	 * in file 
-	 */
 	
 	for (fd = 0; fd < MAX_FILES; fd++) {
 		if (openFileTable[fd].pathname == NULL) break;
@@ -88,10 +82,19 @@ Fileops_open(char *pathname)
 	if (fd >= MAX_FILES) {
 		return -1;  // No open file slots
 	}
+	
+	//fprintf(stderr, "fd: %d\n", fd);
+	
+	inumber = pathname_lookup(unixfs, pathname, &(openFileTable[fd].size), &(openFileTable[fd].flag));
+	if (inumber < 0) {
+		return -1; // File not found
+	}
+	
+	//fprintf(stderr, "size: %d\n", openFileTable[fd].size);
+	
 	openFileTable[fd].pathname = strdup(pathname); // Save our own copy
 	openFileTable[fd].cursor = 0;
 	openFileTable[fd].inumber = inumber;
-	
 	openFileTable[fd].blockNo = -1;
 	
 	int err = inode_iget(unixfs, inumber, &(openFileTable[fd].in));
@@ -113,11 +116,8 @@ int
 Fileops_getchar(int fd)
 {
 	int inumber;
-//	struct inode in;
 	int bytesMoved;
-//	int err;
 	int size;
-//	int blockNo;
 	int blockOffset;
 	
 	numgetchars++;
@@ -126,18 +126,6 @@ Fileops_getchar(int fd)
 		return -1;  // fd not opened.
 	
 	inumber = openFileTable[fd].inumber;
-//	inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);//should be done once, store it afterwards. 
-//	if (inumber < 0) {
-//		return inumber; // Can't find file
-//	}
-	
-//	err = inode_iget(unixfs, inumber, &in);
-//	if (err < 0) {
-//		return err;
-//	}
-//	if (!(in.i_mode & IALLOC)) {
-//		return -1;
-//	}
 	size = inode_getsize(&(openFileTable[fd].in));
 	
 	//use size to figure out the number of blocks
@@ -148,7 +136,7 @@ Fileops_getchar(int fd)
 	blockOffset =  openFileTable[fd].cursor % DISKIMG_SECTOR_SIZE;
 	if (openFileTable[fd].blockNo != newblockNo) {
 		openFileTable[fd].blockNo = newblockNo;
-		bytesMoved = file_getblock(unixfs, inumber, openFileTable[fd].blockNo, openFileTable[fd].buf);
+		bytesMoved = directoryFile_getblock(unixfs, inumber, openFileTable[fd].blockNo, openFileTable[fd].buf, &(openFileTable[fd].in));
 		if (bytesMoved < 0) {
 			return -1;
 		}
@@ -216,7 +204,7 @@ Fileops_isfile(char *pathname)
 {
 	numisfiles++;
 	
-	int inumber = pathname_lookup(unixfs, pathname);
+	int inumber = pathname_lookup(unixfs, pathname, NULL, NULL);
 	if (inumber < 0) {
 		return 0;
 	}
