@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "../cachemem.h"
+
 #include "file.h"
 #include "inode.h"
 #include "diskimg.h"
@@ -13,6 +15,7 @@
 int
 file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *buf)
 {
+	//fprintf(stderr, "in file_getblock, size %d, inum: %d\n", cacheMemSizeInKB, inumber);
 	struct inode in;
 	int getResult = inode_iget(fs, inumber, &in);
 	int sectorNum = inode_indexlookup(fs, &in, blockNum);
@@ -37,9 +40,11 @@ directoryFile_getblock(struct unixfilesystem *fs, int inumber, int blockNum, voi
 	//struct inode in;
 	//int getResult = inode_iget(fs, inumber, &in);
 	int sectorNum = inode_indexlookup(fs, in, blockNum);
+	//fprintf(stderr, "in dirGetBlock, size %d, inum: %d\n", cacheMemSizeInKB, inumber);
+	//fprintf(stderr, "in dirGetBlock, inum: %d blockNum: %d secNum: %d\n", inumber, blockNum, sectorNum);
 	int bytesRead = diskimg_readsector(fs->dfd, sectorNum, buf);
 	if ((bytesRead == -1) || (sectorNum == -1)) return -1;
-	int size = inode_getsize(&in);
+	int size = inode_getsize(in);
 	if ((size % BYTES_PER_BLOCK) == 0) {
 		return BYTES_PER_BLOCK;
 	} else {

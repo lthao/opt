@@ -40,21 +40,56 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 		if (i_addrIndex <= (I_ADDR_LAST_INDEX - 1)) {
 			int sectorNum = inp->i_addr[i_addrIndex];
 			uint16_t buff[UINT16_ENTRIES_PER_BLOCK];
-			int bytesRead = diskimg_readsector(fs->dfd, sectorNum, &buff);
-			if (bytesRead == -1) return -1;
-			return (int) buff[sectorIndex];
+			
+			int cacheArrayIndex = secNumInCache(sectorNum);
+			if (cacheArrayIndex != -1) {
+				//secnum is in cache
+				getFromCache(&buff, cacheArrayIndex);
+				return (int) buff[sectorIndex];
+			} else {
+				//secnum is not in cache
+				int bytesRead = diskimg_readsector(fs->dfd, sectorNum, &buff);
+				if (bytesRead == -1) return -1;
+				writeToCache(&buff, sectorNum);
+				return (int) buff[sectorIndex];
+			}
 		} else {
 			int block1SectorNum = inp->i_addr[I_ADDR_LAST_INDEX];
 			uint16_t block1Buff[UINT16_ENTRIES_PER_BLOCK];
-			int block1BytesRead = diskimg_readsector(fs->dfd, block1SectorNum, &block1Buff);
-			if (block1BytesRead == -1) return -1;
 			int block1Index = ((blockNum - (I_ADDR_LAST_INDEX * UINT16_ENTRIES_PER_BLOCK)) / UINT16_ENTRIES_PER_BLOCK);
 			uint16_t block2Buff[UINT16_ENTRIES_PER_BLOCK];
-			int block2SectorNum = block1Buff[block1Index];
-			int block2BytesRead = diskimg_readsector(fs->dfd, block2SectorNum, &block2Buff);
-			if (block2BytesRead == -1) return -1;
-			int index = blockNum % UINT16_ENTRIES_PER_BLOCK;
-			return (int) block2Buff[index];
+			
+			int cacheArrayIndex1 = secNumInCache(block1SectorNum);
+			if (cacheArrayIndex1 != -1) {
+				//block1SectorNum is in cache
+				getFromCache(&block1Buff, cacheArrayIndex1);
+				int block2SectorNum = block1Buff[block1Index];
+				int cacheArrayIndex2 = secNumInCache(block2SectorNum);
+				if (cacheArrayIndex2 != -1) {
+					//block2SectorNum is in cache
+					getFromCache(&block1Buff, cacheArrayIndex2);
+					int index = blockNum % UINT16_ENTRIES_PER_BLOCK;
+					return (int) block2Buff[index];
+				} else {
+					//block2SectorNum is not in cache
+					int block2BytesRead = diskimg_readsector(fs->dfd, block2SectorNum, &block2Buff);
+					if (block2BytesRead == -1) return -1;
+					writeToCache(&block2Buff, block2SectorNum);
+					int index = blockNum % UINT16_ENTRIES_PER_BLOCK;
+					return (int) block2Buff[index];
+				}
+			} else {
+				//block1SectorNum is not in cache
+				int bytesRead = diskimg_readsector(fs->dfd, block1SectorNum, &block1Buff);
+				if (bytesRead == -1) return -1;
+				writeToCache(&block1Buff, block1SectorNum);
+				int block2SectorNum = block1Buff[block1Index];
+				int block2BytesRead = diskimg_readsector(fs->dfd, block2SectorNum, &block2Buff);
+				if (block2BytesRead == -1) return -1;
+				writeToCache(&block2Buff, block2SectorNum);
+				int index = blockNum % UINT16_ENTRIES_PER_BLOCK;
+				return (int) block2Buff[index];
+			}
 		}
 	}
 	return -1;

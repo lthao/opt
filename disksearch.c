@@ -254,19 +254,24 @@ BuildDiskIndex(char *diskpath, int discardDups)
     fprintf(stderr, "Can't create pathstore\n");
     exit(EXIT_FAILURE);
   }
-
+  //fprintf(stderr, "About to create index\n");
   diskIndex = Index_Create();
+  //fprintf(stderr, "Index created\n");
   if (diskIndex == NULL) {
     fprintf(stderr, "Can't create index\n");
     exit(EXIT_FAILURE);
   }
+	//fprintf(stderr, "about to reach quietflag\n");
   if (!quietFlag) {
     printf("Starting index build ....");
   }
 
   int64_t startTime = Debug_GetTimeInMicrosecs();
+	//fprintf(stderr, "scanning tree\n");
 
   int err = Scan_TreeAndIndex("/", diskIndex, store, discardDups);
+	//fprintf(stderr, "scanned tree\n");
+
   if (err) {
     fprintf(stderr, "Error creating index\n");
     exit(EXIT_FAILURE);

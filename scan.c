@@ -83,15 +83,73 @@ Scan_File(char *inpathname, Index *ind, Pathstore *store, int discardDups)
   return 0;
 }
 
+int
+Scan_File2(char *inpathname, Index *ind, Pathstore *store, int discardDups, int inumber)
+{
+	// Save the pathname in the store
+	char *pathname  = Pathstore_path(store, inpathname,discardDups);
+	if (pathname == NULL) {
+		numdups++;
+		DPRINTF('s',("Scan_Pathname discard dup (%s)\n", inpathname));
+		return 0;
+	}
+	numfiles++;
+	DPRINTF('s', ("Scan_Pathname(%s)\n", pathname));
+	
+	int fd = Fileops_open2(pathname, inumber);
+	if (fd < 0) {
+		fprintf(stderr, "Can't open pathname %s\n", pathname);
+		return -1;
+	}
+	
+	int ch = Fileops_getchar(fd);
+	numchars++;
+	
+	while (!(ch < 0)) {   // Process words until we reach the end of the file
+		while (!isalpha(ch)) {    // Skip any leading non-alpha characters
+			ch = Fileops_getchar(fd);
+			if (ch < 0) {
+				Fileops_close(fd); 
+				return 0; 
+			}
+			numchars++;
+		}
+		// Found a word - record it in the index.
+		int offset = Fileops_tell(fd);
+		int pos = 0;
+		// read off the word until we hit the end of the word buffer
+		// or the end of the file or we hit an non-alpah characters
+		char word[MAX_WORD_SIZE+1];
+		while ((pos < MAX_WORD_SIZE) && !(ch < 0) && isalpha(ch)) {
+			word[pos++] = ch;
+			ch = Fileops_getchar(fd);
+			numchars++;
+		}
+		numwords++;
+		word[pos] = 0; // terminate string
+		bool ok = Index_StoreEntry(ind, word, pathname, offset);
+		assert(ok);
+	}
+	
+	Fileops_close(fd);
+	return 0;
+}
 
 int
 Scan_TreeAndIndex(char *pathname, Index *ind, Pathstore *store,int discardDups)
 {
   const uint32_t MAXPATH = 1024;
+	
+	int inumber = 0;
+	
+	if (Fileops_isfile2(pathname, &inumber)) {
+		return Scan_File2(pathname, ind, store, discardDups, inumber);
+	}
 
-  if (Fileops_isfile(pathname)) {
-    return Scan_File(pathname, ind, store, discardDups);
-  }
+//  if (Fileops_isfile(pathname)) {
+//    return Scan_File(pathname, ind, store, discardDups);
+//  }
+	
   /* Not a file must be directory, process all entries in the directory */
 
   if (strlen(pathname) > MAXPATH-16) {
@@ -100,9 +158,9 @@ Scan_TreeAndIndex(char *pathname, Index *ind, Pathstore *store,int discardDups)
   }
   numdirs++;
 
-  int dirfd = Fileops_open(pathname);
+  int dirfd = Fileops_open2(pathname, inumber);
   if (dirfd < 0) {
-    fprintf(stderr, "Can't open pathname %s\n", pathname);
+    fprintf(stderr, "Can't open pathname dir %s\n", pathname);
     return -1;
   }
 

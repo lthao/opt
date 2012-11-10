@@ -145,6 +145,7 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
 		numdiffchecksum++;
 		return 0;  // Checksum mismatch, not the same file
 	}
+//	return 1;
 	/* Checksums match, do a content comparison */
 	int fd1 = Fileops_open(pathname1);
 	if (fd1 < 0) {
@@ -162,7 +163,7 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
 	int ch1, ch2;
 	
 	do {
-		ch1 = Fileops_getchar(fd1);
+		ch1 = Fileops_getchar(fd1); //can we cache this?
 		ch2 = Fileops_getchar(fd2);
 		
 		if (ch1 != ch2) {
@@ -170,7 +171,7 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
 		}
 	} while (ch1 != -1);
 	
-	// if files match then ch1 == ch2 == -1
+	//if files match then ch1 == ch2 == -1
 	
 	Fileops_close(fd1);
 	Fileops_close(fd2);

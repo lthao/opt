@@ -89,6 +89,8 @@ Fileops_open(char *pathname)
 	if (inumber < 0) {
 		return -1; // File not found
 	}
+	fprintf(stderr, "file_open path: %s\n", pathname);
+	fprintf(stderr, "file_open in: %d\n", inumber);
 	
 	//fprintf(stderr, "size: %d\n", openFileTable[fd].size);
 	
@@ -98,6 +100,46 @@ Fileops_open(char *pathname)
 	openFileTable[fd].blockNo = -1;
 	
 	int err = inode_iget(unixfs, inumber, &(openFileTable[fd].in));
+	if (err < 0) {
+		return err;
+	}
+	if (!(openFileTable[fd].in.i_mode & IALLOC)) {
+		return -1;
+	}
+	
+	return fd;
+}
+
+int
+Fileops_open2(char *pathname, int argInumber)
+{
+	int fd;
+	//int inumber;
+	
+	numopens++;
+	
+	for (fd = 0; fd < MAX_FILES; fd++) {
+		if (openFileTable[fd].pathname == NULL) break;
+	}
+	if (fd >= MAX_FILES) {
+		return -1;  // No open file slots
+	}
+	
+	//fprintf(stderr, "fd: %d\n", fd);
+	
+	//inumber = pathname_lookup(unixfs, pathname, &(openFileTable[fd].size), &(openFileTable[fd].flag));
+	if (argInumber < 0) {
+		return -1; // File not found
+	}
+	
+	//fprintf(stderr, "size: %d\n", openFileTable[fd].size);
+	
+	openFileTable[fd].pathname = strdup(pathname); // Save our own copy
+	openFileTable[fd].cursor = 0;
+	openFileTable[fd].inumber = argInumber;
+	openFileTable[fd].blockNo = -1;
+	
+	int err = inode_iget(unixfs, argInumber, &(openFileTable[fd].in));
 	if (err < 0) {
 		return err;
 	}
@@ -208,9 +250,33 @@ Fileops_isfile(char *pathname)
 	if (inumber < 0) {
 		return 0;
 	}
-	
+	//fprintf(stderr, "file_isfile path: %s\n", pathname);
+	//fprintf(stderr, "file_isfile in: %d\n", inumber);
 	struct inode in;
 	int err = inode_iget(unixfs, inumber, &in);
+	if (err < 0) return 0;
+	
+	if (!(in.i_mode & IALLOC) || ((in.i_mode & IFMT) != 0)) {
+		/* Not allocated or not a file */
+		return 0;
+	}
+	return 1; /* Must be a file */
+}
+
+int
+Fileops_isfile2(char *pathname, int *inumber)
+{
+	numisfiles++;
+	
+	int resultInumber = pathname_lookup(unixfs, pathname, NULL, NULL);
+	if (resultInumber < 0) {
+		return 0;
+	}
+	
+	*inumber = resultInumber;
+	
+	struct inode in;
+	int err = inode_iget(unixfs, resultInumber, &in);
 	if (err < 0) return 0;
 	
 	if (!(in.i_mode & IALLOC) || ((in.i_mode & IFMT) != 0)) {

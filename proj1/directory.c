@@ -16,6 +16,7 @@ directory_findname(struct unixfilesystem *fs, const char *name,
                    int dirinumber, struct direntv6 *dirEnt, int *info1, int *info2)
 {
   	struct inode in;
+	//fprintf(stderr, "about to call inode iget \n");
 	int getResult = inode_iget(fs, dirinumber, &in);
 	if (getResult == -1) return -1;
 	if ((in.i_mode & IFMT) != IFDIR) return -1;
@@ -26,6 +27,7 @@ directory_findname(struct unixfilesystem *fs, const char *name,
 	int numbBlocks = ((size / BYTES_PER_BLOCK) + 1);
 	for (int i = 0; i < numbBlocks; i++) {
 		struct direntv6 buff[(BYTES_PER_BLOCK / sizeof(struct direntv6))];
+		//fprintf(stderr, "about to call directfilegetblock\n");
 		int validBytes = directoryFile_getblock(fs, dirinumber, i, &buff, &in);
 		if (validBytes == -1) return -1;
 		for (int j = 0; j < (validBytes / (int)sizeof(struct direntv6)); j++) {
